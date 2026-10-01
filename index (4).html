@@ -1,0 +1,931 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>ปลวกกัดทะลุ</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Mitr:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px);
+  padding-bottom:env(safe-area-inset-bottom,0px);
+  --page:#c9a06a; --frame:#5a3519; --panel:#f6e8cc; --panel-ink:#2e1a0b; --muted:#7b5734;
+  --line:#d9bf93; --amber:#e8a23a; --amber-deep:#a8641a; --sap:#79b043; --danger:#c23b2a; --chem:#3f8a80;
+  --font:'Mitr',"Noto Sans Thai","Leelawadee UI",Tahoma,system-ui,sans-serif;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --page:#1f130a; --frame:#3a2313; --panel:#2c1c10; --panel-ink:#f4e4c6; --muted:#c9a57a; --line:#4a3220;
+  }
+}
+:root[data-theme="dark"]{
+  --page:#1f130a; --frame:#3a2313; --panel:#2c1c10; --panel-ink:#f4e4c6; --muted:#c9a57a; --line:#4a3220;
+}
+*,*::before,*::after{box-sizing:inherit}
+html{height:100%;scroll-padding-top:env(safe-area-inset-top,0px)}
+body{height:100%;margin:0;background:var(--page);font-family:var(--font);color:var(--panel-ink);overflow:hidden;
+  -webkit-user-select:none;user-select:none;-webkit-tap-highlight-color:transparent}
+#stage{position:relative;height:100%;max-width:480px;margin:0 auto;background:#ddb984;
+  box-shadow:0 0 0 6px var(--frame);overflow:hidden}
+canvas{display:block;width:100%;height:100%;touch-action:none}
+
+/* HUD */
+#hud{position:absolute;left:0;right:0;top:0;padding:12px 30px 0;pointer-events:none;display:none;color:#2e1a0b}
+#hud.on{display:block}
+.row{display:flex;justify-content:space-between;align-items:flex-end;gap:12px}
+#score{font-size:30px;font-weight:600;line-height:1;text-shadow:0 2px 0 rgba(255,240,210,.6)}
+#comboBox{text-align:right;line-height:1.1;margin-right:12px}
+#combo{font-size:20px;font-weight:600}
+#mult{font-size:13px;color:#6b3f17}
+.bar{height:10px;border-radius:6px;background:rgba(60,30,10,.28);overflow:hidden;margin-top:8px}
+.bar i{display:block;height:100%;width:100%;border-radius:6px;transition:width .1s linear}
+#hunger i{background:var(--sap)}
+#hunger.low i{background:var(--danger)}
+#meter{height:6px;margin-top:5px}
+#meter i{background:var(--amber)}
+#meter.frenzy i{background:#ffd36b;box-shadow:0 0 10px #ffcc55}
+.barLabel{display:flex;justify-content:space-between;font-size:11.5px;margin-top:4px;color:#5a3519}
+#pauseBtn{position:absolute;top:10px;right:6px;width:22px;height:22px;border:0;padding:0;background:none;color:#2e1a0b;
+  font-size:16px;pointer-events:auto;cursor:pointer;opacity:.7}
+
+#banner{position:absolute;left:50%;top:34%;transform:translate(-50%,-50%) scale(.9);opacity:0;pointer-events:none;
+  font-size:30px;font-weight:600;color:#fff8e6;text-align:center;white-space:nowrap;
+  text-shadow:0 3px 0 #5a3519,0 0 18px rgba(90,53,25,.6);transition:opacity .25s,transform .25s}
+#banner small{display:block;font-size:15px;font-weight:500}
+#banner.on{opacity:1;transform:translate(-50%,-50%) scale(1)}
+
+#biteBtn{position:absolute;right:18px;bottom:calc(22px + env(safe-area-inset-bottom,0px));width:92px;height:92px;border-radius:50%;
+  border:0;background:var(--amber);color:#2e1a0b;font:600 22px var(--font);display:none;touch-action:none;
+  box-shadow:0 6px 0 var(--amber-deep),0 10px 20px rgba(0,0,0,.25)}
+#biteBtn.on{display:block}
+#biteBtn:active{transform:translateY(4px);box-shadow:0 2px 0 var(--amber-deep)}
+#keyHint{position:absolute;left:0;right:0;bottom:12px;text-align:center;font-size:12.5px;color:#5a3519;pointer-events:none;display:none}
+#keyHint.on{display:block}
+@media (pointer:coarse){#keyHint{display:none!important}}
+
+/* Panels */
+.overlay{position:absolute;inset:0;display:none;align-items:center;justify-content:center;padding:20px;
+  background:rgba(40,22,10,.35);overflow-y:auto}
+.overlay.on{display:flex}
+.panel{width:100%;max-width:380px;background:var(--panel);border-radius:18px;padding:22px 22px 20px;
+  box-shadow:0 0 0 3px var(--frame),0 14px 40px rgba(0,0,0,.35);margin:auto}
+h1{margin:0;font-size:40px;line-height:1.05;font-weight:600;letter-spacing:-.5px}
+h1 span{display:block;font-size:17px;font-weight:400;color:var(--muted);letter-spacing:0;margin-top:6px;line-height:1.4}
+h2{margin:0 0 4px;font-size:26px;font-weight:600}
+p{margin:6px 0;line-height:1.55;font-size:14.5px}
+.stats{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:14px 0}
+.stat{border:1.5px solid var(--line);border-radius:10px;padding:8px 10px}
+.stat b{display:block;font-size:22px;font-weight:600;line-height:1.2}
+.stat span{font-size:12.5px;color:var(--muted)}
+.btns{display:flex;flex-direction:column;gap:10px;margin-top:16px}
+button.main,button.alt{font:600 18px var(--font);border:0;border-radius:12px;padding:13px 16px;cursor:pointer}
+button.main{background:var(--amber);color:#2e1a0b;box-shadow:0 4px 0 var(--amber-deep)}
+button.main:active{transform:translateY(3px);box-shadow:0 1px 0 var(--amber-deep)}
+button.alt{background:transparent;color:var(--panel-ink);border:1.5px solid var(--line);font-weight:500;font-size:16px}
+button:focus-visible{outline:3px solid #4a90d9;outline-offset:2px}
+.legend{display:grid;grid-template-columns:1fr 1fr;gap:6px 12px;margin:14px 0 4px;font-size:13px}
+.legend div{display:flex;align-items:center;gap:8px}
+.sw{width:22px;height:14px;border-radius:4px;flex:none}
+.sw.round{width:14px;height:14px;border-radius:50%}
+.legendTitle{font-size:13px;color:var(--muted);margin-top:12px}
+.controls{font-size:13px;color:var(--muted);margin-top:10px;line-height:1.6}
+.bank{display:flex;align-items:center;justify-content:space-between;border:1.5px solid var(--line);border-radius:10px;padding:8px 12px;margin:12px 0 4px}
+.bank b{font-size:22px}
+.up{display:grid;grid-template-columns:1fr auto;gap:4px 12px;align-items:center;padding:12px 0;border-bottom:1.5px solid var(--line)}
+.up:last-child{border-bottom:0}
+.up h3{margin:0;font-size:17px;font-weight:600}
+.up p{margin:0;font-size:13px;color:var(--muted);grid-column:1}
+.pips{display:flex;gap:4px;grid-column:1}
+.pips i{width:18px;height:6px;border-radius:3px;background:var(--line)}
+.pips i.f{background:var(--amber)}
+.up button{grid-row:1/4;grid-column:2;font:600 14px var(--font);border:0;border-radius:10px;padding:10px 12px;background:var(--amber);color:#2e1a0b;cursor:pointer;min-width:84px}
+.up button:disabled{background:var(--line);color:var(--muted);cursor:default}
+.newBest{display:inline-block;background:var(--sap);color:#fff;font-size:12px;border-radius:6px;padding:1px 8px;margin-left:6px;vertical-align:middle}
+.muteRow{display:flex;justify-content:center;margin-top:12px}
+.muteRow button{background:none;border:0;color:var(--muted);font:400 13px var(--font);cursor:pointer;text-decoration:underline}
+</style>
+</head>
+<body>
+<div id="stage">
+  <canvas id="cv"></canvas>
+
+  <div id="hud">
+    <div class="row">
+      <div id="score">0</div>
+      <div id="comboBox"><div id="combo">Combo 0</div><div id="mult">คะแนน x1</div></div>
+    </div>
+    <div class="bar" id="hunger"><i></i></div>
+    <div class="bar" id="meter"><i style="width:0"></i></div>
+    <div class="barLabel"><span>ความอิ่ม</span><span id="meterLabel">Frenzy</span></div>
+    <button id="pauseBtn" aria-label="หยุดชั่วคราว">II</button>
+  </div>
+
+  <div id="banner"></div>
+  <button id="biteBtn" aria-label="กัด">กัด!</button>
+  <div id="keyHint">← → บังคับ · Space กัด · P หยุด</div>
+
+  <!-- Start -->
+  <div class="overlay on" id="menu">
+    <div class="panel">
+      <h1>ปลวกกัดทะลุ<span>วิ่งผ่านคานไม้ กัดให้ทันจังหวะ แล้วพาอาหารกลับรัง</span></h1>
+      <p style="margin-top:14px">กัดไม้เพื่อเปิดทางและเติมความอิ่ม ถ้าความอิ่มหมด รอบนี้จบ กัดตอนไม้ใกล้ปากที่สุดจะได้ <b>Perfect</b></p>
+      <div class="legendTitle">กัดได้</div>
+      <div class="legend">
+        <div><span class="sw" style="background:#8f8150"></span>ไม้ผุ</div>
+        <div><span class="sw" style="background:#c8873f"></span>ไม้สน</div>
+        <div><span class="sw" style="background:#6b3518"></span>ไม้แข็ง กัดรัว</div>
+        <div><span class="sw" style="background:#f2b632"></span>ไม้ทอง เร่งความเร็ว</div>
+        <div><span class="sw" style="background:#3f8a80"></span>ไม้อาบน้ำยา มีพิษ</div>
+        <div><span class="sw round" style="background:#fff;border:1px solid #bbb"></span>เศษกระดาษ</div>
+      </div>
+      <div class="legendTitle">ห้ามกัด ต้องหลบ</div>
+      <div class="legend">
+        <div><span class="sw round" style="background:#9aa3ab"></span>ตะปู</div>
+        <div><span class="sw round" style="background:#7a1d12"></span>มด</div>
+        <div><span class="sw" style="background:#a0e1b4"></span>สเปรย์คนฉีดยา</div>
+      </div>
+      <div class="controls">คีย์บอร์ด: ← → หรือ A D บังคับ, Space กัด<br>มือถือ: ลากนิ้วบนจอเพื่อบังคับ, ปุ่ม “กัด!” มุมขวาล่าง</div>
+      <div class="btns">
+        <button class="main" id="startBtn">เริ่มวิ่ง</button>
+        <button class="alt" id="nestBtn">เข้ารัง อัปเกรดปลวก</button>
+      </div>
+      <p style="text-align:center;font-size:13px;color:var(--muted);margin-top:12px" id="menuBest"></p>
+      <div class="muteRow"><button class="muteToggle"></button></div>
+    </div>
+  </div>
+
+  <!-- Nest -->
+  <div class="overlay" id="nest">
+    <div class="panel">
+      <h2>รังปลวก</h2>
+      <p style="color:var(--muted)">ใช้อาหารที่สะสมจากแต่ละรอบเพื่ออัปเกรด ผลจะใช้กับทุกรอบต่อจากนี้</p>
+      <div class="bank"><span>อาหารในรัง</span><b id="bankFood">0</b></div>
+      <div id="ups"></div>
+      <div class="btns"><button class="main" id="nestStart">เริ่มวิ่ง</button><button class="alt" id="nestBack">กลับ</button></div>
+    </div>
+  </div>
+
+  <!-- Pause -->
+  <div class="overlay" id="pause">
+    <div class="panel" style="text-align:center">
+      <h2>หยุดชั่วคราว</h2>
+      <div class="btns"><button class="main" id="resumeBtn">วิ่งต่อ</button><button class="alt" id="quitBtn">ออกไปหน้าแรก</button></div>
+      <div class="muteRow"><button class="muteToggle"></button></div>
+    </div>
+  </div>
+
+  <!-- Game over -->
+  <div class="overlay" id="over">
+    <div class="panel">
+      <h2>ปลวกหิวจนหมดแรง</h2>
+      <p style="color:var(--muted)" id="overTip"></p>
+      <div class="stats">
+        <div class="stat"><b id="oScore">0</b><span>คะแนน</span></div>
+        <div class="stat"><b id="oBest">0</b><span>คะแนนสูงสุด</span></div>
+        <div class="stat"><b id="oWood">0</b><span>ไม้ที่กัด</span></div>
+        <div class="stat"><b id="oCombo">0</b><span>Combo สูงสุด</span></div>
+      </div>
+      <div class="bank"><span>อาหารที่พากลับรัง</span><b id="oFood">+0</b></div>
+      <div class="btns"><button class="main" id="againBtn">วิ่งอีกรอบ</button><button class="alt" id="overNest">เข้ารัง อัปเกรดปลวก</button></div>
+    </div>
+  </div>
+</div>
+
+<script>
+(() => {
+'use strict';
+const $ = id => document.getElementById(id);
+const cv = $('cv'), ctx = cv.getContext('2d');
+const LW = 420, WALL = 18, L = WALL + 14, R = LW - WALL - 14;
+let scale = 1, LH = 760, dpr = 1, PY = 580;
+const reduceMotion = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
+function resize() {
+  const r = cv.getBoundingClientRect();
+  dpr = Math.min(2, window.devicePixelRatio || 1);
+  cv.width = Math.max(1, Math.round(r.width * dpr));
+  cv.height = Math.max(1, Math.round(r.height * dpr));
+  scale = (r.width || LW) / LW;
+  LH = (r.height || 760) / scale;
+  PY = LH * 0.76;
+}
+
+/* ---------- utils ---------- */
+const rand = (a, b) => a + Math.random() * (b - a);
+const clamp = (v, a, b) => v < a ? a : v > b ? b : v;
+const pickW = list => { let s = 0; for (const it of list) s += it.w; let r = Math.random() * s; for (const it of list) { if ((r -= it.w) <= 0) return it; } return list[list.length - 1]; };
+function rrect(x, y, w, h, r) { r = Math.min(r, w / 2, h / 2); ctx.beginPath(); ctx.moveTo(x + r, y); ctx.arcTo(x + w, y, x + w, y + h, r); ctx.arcTo(x + w, y + h, x, y + h, r); ctx.arcTo(x, y + h, x, y, r); ctx.arcTo(x, y, x + w, y, r); ctx.closePath(); }
+function ell(x, y, rx, ry) { ctx.beginPath(); ctx.ellipse(x, y, rx, ry, 0, 0, Math.PI * 2); ctx.fill(); }
+
+/* ---------- save data (per-viewer, optional) ---------- */
+const store = {
+  get(k, d) { try { const v = localStorage.getItem('termite:' + k); return v == null ? d : JSON.parse(v); } catch (e) { return d; } },
+  set(k, v) { try { localStorage.setItem('termite:' + k, JSON.stringify(v)); } catch (e) {} }
+};
+const saved = store.get('save', {}) || {};
+const save = { best: saved.best || 0, food: saved.food || 0, muted: !!saved.muted,
+  up: Object.assign({ jaw: 0, belly: 0, sense: 0 }, saved.up || {}) };
+const persist = () => store.set('save', save);
+
+/* ---------- upgrades ---------- */
+const MAXLV = 4, COST = [15, 30, 55, 90];
+const jawDmg = lv => 1 + (lv >= 2 ? 1 : 0) + (lv >= 4 ? 1 : 0);
+const maxHunger = () => 100 + save.up.belly * 15;
+const biteRange = () => 44 + save.up.sense * 6;
+const perfectWin = () => 14 + save.up.sense * 3;
+const UPS = [
+  { id: 'jaw', name: 'กรามเหล็ก', desc: lv => `ความแรงกัด ${jawDmg(lv)} (ไม้แข็งต้องกัด ${Math.ceil(3 / jawDmg(lv))} ครั้ง)` },
+  { id: 'belly', name: 'ท้องใหญ่', desc: lv => `ความอิ่มสูงสุด ${100 + lv * 15}` },
+  { id: 'sense', name: 'หนวดไว', desc: lv => `ระยะกัด +${lv * 6} และช่วง Perfect กว้างขึ้น` }
+];
+
+/* ---------- audio ---------- */
+let ac = null;
+function audio() { if (save.muted) return null; try { if (!ac) ac = new (window.AudioContext || window.webkitAudioContext)(); if (ac.state === 'suspended') ac.resume(); return ac; } catch (e) { return null; } }
+function tone(f, d, type = 'square', v = 0.05, slide = 0) {
+  const a = audio(); if (!a) return;
+  const o = a.createOscillator(), gn = a.createGain(), t = a.currentTime;
+  o.type = type; o.frequency.setValueAtTime(f, t);
+  if (slide) o.frequency.exponentialRampToValueAtTime(Math.max(40, f + slide), t + d);
+  gn.gain.setValueAtTime(v, t); gn.gain.exponentialRampToValueAtTime(0.0001, t + d);
+  o.connect(gn); gn.connect(a.destination); o.start(t); o.stop(t + d + 0.02);
+}
+function crunch(v = 0.12) {
+  const a = audio(); if (!a) return;
+  const len = Math.floor(a.sampleRate * 0.09), buf = a.createBuffer(1, len, a.sampleRate), ch = buf.getChannelData(0);
+  for (let i = 0; i < len; i++) ch[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / len, 2);
+  const s = a.createBufferSource(), f = a.createBiquadFilter(), gn = a.createGain();
+  f.type = 'bandpass'; f.frequency.value = 1400; gn.gain.value = v;
+  s.buffer = buf; s.connect(f); f.connect(gn); gn.connect(a.destination); s.start();
+}
+function noise(dur, ftype, freq, v, delay = 0) {
+  const a = audio(); if (!a) return;
+  const len = Math.floor(a.sampleRate * dur), buf = a.createBuffer(1, len, a.sampleRate), ch = buf.getChannelData(0);
+  for (let i = 0; i < len; i++) ch[i] = Math.random() * 2 - 1;
+  const src = a.createBufferSource(), f = a.createBiquadFilter(), gn = a.createGain(), t = a.currentTime + delay;
+  f.type = ftype; f.frequency.value = freq;
+  gn.gain.setValueAtTime(0.0001, t); gn.gain.exponentialRampToValueAtTime(v, t + Math.min(0.03, dur / 3)); gn.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+  src.buffer = buf; src.connect(f); f.connect(gn); gn.connect(a.destination); src.start(t); src.stop(t + dur + 0.02);
+}
+function toneAt(f, d, delay, type = 'square', v = 0.04, slide = 0) {
+  const a = audio(); if (!a) return;
+  const o = a.createOscillator(), gn = a.createGain(), t = a.currentTime + delay;
+  o.type = type; o.frequency.setValueAtTime(f, t);
+  if (slide) o.frequency.exponentialRampToValueAtTime(Math.max(40, f + slide), t + d);
+  gn.gain.setValueAtTime(0.0001, t); gn.gain.exponentialRampToValueAtTime(v, t + 0.01); gn.gain.exponentialRampToValueAtTime(0.0001, t + d);
+  o.connect(gn); gn.connect(a.destination); o.start(t); o.stop(t + d + 0.02);
+}
+const sfx = {
+  siren: () => { for (let i = 0; i < 4; i++) { toneAt(660, 0.22, i * 0.25, 'square', 0.035); toneAt(495, 0.22, i * 0.25 + 0.125, 'square', 0.035); } },
+  step: heavy => { toneAt(heavy ? 62 : 75, 0.12, 0, 'sine', heavy ? 0.22 : 0.15, -25); noise(0.05, 'lowpass', 500, 0.05); },
+  heart: () => { toneAt(55, 0.1, 0, 'sine', 0.18); toneAt(52, 0.1, 0.14, 'sine', 0.13); },
+  pump: () => { noise(0.09, 'bandpass', 900, 0.09); noise(0.09, 'bandpass', 1100, 0.09, 0.16); noise(0.09, 'bandpass', 1300, 0.1, 0.32); },
+  hiss: () => { noise(0.65, 'highpass', 2600, 0.16); noise(0.65, 'bandpass', 5000, 0.06); },
+  caught: () => { noise(0.9, 'highpass', 1800, 0.22); toneAt(180, 0.5, 0, 'sawtooth', 0.07, -120); },
+  escape: () => { [523, 659, 784, 1047].forEach((f, i) => toneAt(f, 0.18, i * 0.1, 'triangle', 0.06)); },
+  bite: () => tone(520, 0.05, 'square', 0.03, -200),
+  brk: p => { crunch(p ? 0.18 : 0.12); if (p) tone(880, 0.12, 'triangle', 0.05, 300); },
+  chip: () => crunch(0.07),
+  miss: () => tone(200, 0.12, 'sawtooth', 0.03, -80),
+  hit: () => { tone(140, 0.25, 'sawtooth', 0.07, -60); crunch(0.08); },
+  eat: () => tone(660, 0.08, 'triangle', 0.04, 200),
+  frenzy: () => { tone(440, 0.15, 'square', 0.04, 440); setTimeout(() => tone(660, 0.2, 'square', 0.04, 440), 120); },
+  warn: () => tone(330, 0.3, 'triangle', 0.05, 0)
+};
+
+const BASS = [110, 0, 110, 131, 0, 98, 110, 0];
+const TENSE = [110, 117, 110, 0, 104, 110, 98, 117];
+function music(dt) {
+  if (save.muted || !ac) return;
+  const chase = !!sprayEv();
+  const bpm = chase ? 168 : 124, stepLen = 60 / bpm / 2;
+  g.musT -= dt;
+  if (g.musT > 0) return;
+  g.musT += stepLen; if (g.musT < 0) g.musT = stepLen;
+  const i = g.musI++ % 8, pat = chase ? TENSE : BASS, f = pat[i];
+  if (f) toneAt(f, stepLen * 0.9, 0, 'triangle', chase ? 0.06 : 0.045);
+  if (i % 2 === 1) noise(0.03, 'highpass', 7000, chase ? 0.03 : 0.018);
+  if (i % 4 === 0) toneAt(chase ? 58 : 65, 0.1, 0, 'sine', 0.09, -20);
+  if (chase && i === 4) toneAt(880, 0.08, 0, 'square', 0.012);
+}
+
+/* ---------- background wood tile ---------- */
+const TILE_H = 640;
+const tile = document.createElement('canvas');
+tile.width = LW * 2; tile.height = TILE_H * 2;
+(() => {
+  const t = tile.getContext('2d'); t.scale(2, 2);
+  t.fillStyle = '#ddb984'; t.fillRect(0, 0, LW, TILE_H);
+  for (let i = 0; i < 14; i++) { t.fillStyle = `rgba(150,95,45,${0.04 + Math.random() * 0.07})`; t.fillRect(Math.random() * LW, 0, 10 + Math.random() * 40, TILE_H); }
+  for (let i = 0; i < 48; i++) {
+    const x0 = Math.random() * LW, amp = 2 + Math.random() * 7, k = (1 + Math.floor(Math.random() * 3)) * 2 * Math.PI / TILE_H, ph = Math.random() * 6.28;
+    t.strokeStyle = `rgba(110,62,28,${0.1 + Math.random() * 0.18})`; t.lineWidth = 0.6 + Math.random() * 1.4; t.beginPath();
+    for (let y = 0; y <= TILE_H; y += 8) { const x = x0 + Math.sin(y * k + ph) * amp; if (y) t.lineTo(x, y); else t.moveTo(x, y); }
+    t.stroke();
+  }
+  for (let i = 0; i < 3; i++) {
+    const kx = 50 + Math.random() * (LW - 100), ky = 90 + Math.random() * (TILE_H - 180);
+    t.strokeStyle = 'rgba(100,55,25,0.22)'; t.lineWidth = 1.2;
+    for (let r = 20; r > 2; r -= 4) { t.beginPath(); t.ellipse(kx, ky, r * 0.7, r * 1.4, 0, 0, Math.PI * 2); t.stroke(); }
+    t.fillStyle = 'rgba(90,50,20,.35)'; t.beginPath(); t.ellipse(kx, ky, 2.5, 4, 0, 0, Math.PI * 2); t.fill();
+  }
+})();
+
+/* ---------- objects ---------- */
+const KINDS = {
+  rotten: { hp: 1, food: 8, pts: 10, col: '#8f8150', dark: '#6d6138' },
+  pine:   { hp: 1, food: 12, pts: 15, col: '#c8873f', dark: '#9c6328' },
+  hard:   { hp: 3, food: 22, pts: 45, col: '#6b3518', dark: '#4a220c' },
+  chem:   { hp: 1, food: 4, pts: 5, col: '#3f8a80', dark: '#2a635c' },
+  gold:   { hp: 1, food: 10, pts: 60, col: '#f2b632', dark: '#c4861a' }
+};
+function pickKind(d) {
+  return pickW([{ k: 'rotten', w: 0.28 }, { k: 'pine', w: 0.42 }, { k: 'hard', w: 0.12 + 0.12 * d }, { k: 'chem', w: 0.04 + 0.1 * d }, { k: 'gold', w: 0.05 }]).k;
+}
+let g;
+const wood = (x, y, w, kind) => g.objs.push({ t: 'wood', x, y, w, h: 30, kind, hp: KINDS[kind].hp, max: KINDS[kind].hp, jig: 0 });
+const nail = (x, y) => g.objs.push({ t: 'nail', x, y, r: 11 });
+const ant = (x, y, vx) => g.objs.push({ t: 'ant', x, y, r: 12, vx, ph: Math.random() * 6 });
+const crumb = (x, y) => g.objs.push({ t: 'crumb', x, y, r: 9, rot: Math.random() * 6 });
+
+const PATTERNS = [
+  { min: 0, w: 3, f: d => { const w = rand(74, 110); wood(rand(L + w / 2, R - w / 2), -40, w, pickKind(d)); } },
+  { min: 0, w: 2, f: d => { // wood wall: must bite through
+      const n = 4, cw = (R - L) / n, force = Math.floor(Math.random() * n);
+      for (let i = 0; i < n; i++) wood(L + cw * (i + 0.5), -40, cw - 4, i === force ? (Math.random() < 0.5 ? 'pine' : 'rotten') : pickKind(d));
+  } },
+  { min: 0, w: 1.6, f: () => { // paper trail
+      const x0 = rand(L + 60, R - 60);
+      for (let i = 0; i < 5; i++) crumb(clamp(x0 + Math.sin(i * 0.8) * 50, L, R), -40 - i * 38);
+  } },
+  { min: 0.05, w: 2, f: d => { // nail field
+      const k = 2 + Math.floor(d * 3), xs = [];
+      for (let a = 0; a < 40 && xs.length < k; a++) { const x = rand(L, R); if (xs.every(o => Math.abs(o - x) > 84)) xs.push(x); }
+      xs.forEach(x => nail(x, -40 - rand(0, 70)));
+  } },
+  { min: 0.12, w: 2, f: d => { // nail gate, maybe with a wooden door
+      const gw = 112, gx = rand(L + gw / 2, R - gw / 2);
+      for (let x = L - 4; x <= R + 4; x += 25) if (Math.abs(x - gx) > gw / 2) nail(x, -40);
+      if (Math.random() < 0.5 + 0.35 * d) wood(gx, -40, gw - 14, Math.random() < 0.3 + 0.3 * d ? 'hard' : 'pine');
+  } },
+  { min: 0.15, w: 2, noRaid: true, f: d => {
+      const n = 1 + Math.floor(d * 2.5);
+      for (let i = 0; i < n; i++) ant(rand(L, R), -40 - i * 70, (Math.random() < 0.5 ? -1 : 1) * rand(40, 70 + 80 * d));
+  } },
+  { min: 0.25, w: 1.6, f: () => { // risk zone: ants + food left, hardwood right
+      ant(L + 40, -70, 55);
+      for (let i = 0; i < 4; i++) crumb(L + 30 + (i % 2) * 40, -40 - i * 34);
+      wood(R - 50, -40, 92, 'hard'); wood(R - 50, -110, 92, Math.random() < 0.4 ? 'gold' : 'hard');
+  } }
+];
+
+/* ---------- game state ---------- */
+function newGame(state) {
+  return {
+    state, t: 0, bgY: 0, speed: 220, score: 0, combo: 0, maxCombo: 0, meter: 0, frenzy: 0,
+    hunger: maxHunger(), maxH: maxHunger(), x: LW / 2, vx: 0, invuln: 0, slow: 0, boost: 0, poison: 0,
+    biteT: 0, biteCD: 0, objs: [], parts: [], texts: [], spawnAcc: 0, nextGap: 260,
+    musT: 0, musI: 0, eventT: 12, event: null, evCount: 0, eaten: 0, crumbs: 0, shake: 0, target: null, targetPerfect: false, overT: 0
+  };
+}
+g = newGame('menu');
+
+const keys = { l: false, r: false };
+let ptr = { on: false, x: 0, id: null };
+
+function mult() { return (1 + Math.floor(g.combo / 5) * 0.25) * (g.frenzy > 0 ? 2 : 1); }
+function popText(x, y, txt, col = '#fff8e6', size = 18) { g.texts.push({ x, y, txt, col, size, life: 0.9, max: 0.9 }); }
+function burst(x, y, col, n = 10, sp = 160) {
+  for (let i = 0; i < n; i++) { const a = Math.random() * Math.PI * 2, s = rand(sp * 0.3, sp); g.parts.push({ x, y, vx: Math.cos(a) * s, vy: Math.sin(a) * s - 40, life: rand(0.35, 0.7), col, sz: rand(2, 4.5) }); }
+}
+
+let bannerTimer = 0;
+function banner(html, dur = 1.6) { const b = $('banner'); b.innerHTML = html; b.classList.add('on'); clearTimeout(bannerTimer); bannerTimer = setTimeout(() => b.classList.remove('on'), dur * 1000); }
+
+/* ---------- core actions ---------- */
+function sprayEv() { return g.event && g.event.type === 'spray' && g.event.t >= 0 ? g.event : null; }
+function hit(label, dmg = 18) {
+  if (g.invuln > 0 || g.state !== 'playing') return false;
+  const sp = sprayEv(); if (sp) sp.near = Math.min(1, sp.near + 0.18);
+  g.hunger -= dmg; g.combo = 0; g.meter = Math.max(0, g.meter - 25);
+  g.invuln = 1.2; g.slow = 0.5; g.shake = 10;
+  popText(g.x, PY - 40, label || 'โดน!', '#ffd0c4', 22);
+  burst(g.x, PY - 10, '#c23b2a', 8, 120);
+  sfx.hit();
+  return true;
+}
+
+function breakWood(o, perfect) {
+  const k = KINDS[o.kind];
+  g.objs.splice(g.objs.indexOf(o), 1);
+  g.combo++; g.maxCombo = Math.max(g.maxCombo, g.combo); g.eaten++;
+  const sp = sprayEv(); if (sp) sp.near = Math.max(0, sp.near - (perfect ? 0.1 : 0.07));
+  g.hunger = Math.min(g.maxH, g.hunger + k.food);
+  const pts = Math.round(k.pts * mult() * (perfect ? 1.5 : 1));
+  g.score += pts;
+  burst(o.x, o.y, k.col, 14, 200); burst(o.x, o.y, k.dark, 6, 150);
+  if (g.frenzy <= 0) {
+    g.meter += perfect ? 12 : 8;
+    if (g.meter >= 100) { g.meter = 100; g.frenzy = 6; banner('FRENZY!<small>ชนไม้แตกเอง มดกระเด็น ระวังตะปู</small>', 1.8); sfx.frenzy(); }
+  }
+  if (o.kind === 'chem') { g.poison = 4; popText(o.x, o.y - 20, 'พิษ! หิวเร็วขึ้น', '#b9f0e4', 17); }
+  else if (o.kind === 'gold') { g.boost = 2.5; g.combo += 2; popText(o.x, o.y - 20, 'เร่งความเร็ว!', '#ffe08a', 19); }
+  else popText(o.x, o.y - 18, perfect ? `Perfect! +${pts}` : `+${pts}`, perfect ? '#fff3b0' : '#fff8e6', perfect ? 21 : 16);
+  sfx.brk(perfect);
+}
+
+function findTarget() {
+  const s = g.frenzy > 0 ? 1.35 : 1, headY = PY - 22 * s, rng = biteRange();
+  let best = null, bd = 1e9;
+  for (const o of g.objs) {
+    if (o.t === 'crumb') continue;
+    let bottom, over;
+    if (o.t === 'wood') { bottom = o.y + o.h / 2; over = Math.abs(o.x - g.x) < o.w / 2 + 8; }
+    else { bottom = o.y + o.r; over = Math.abs(o.x - g.x) < o.r + 10; }
+    const dist = headY - bottom;
+    if (over && dist >= -10 && dist <= rng && dist < bd) { bd = dist; best = o; }
+  }
+  g.target = best; g.targetPerfect = !!best && bd <= perfectWin();
+}
+
+function bite() {
+  if (g.state !== 'playing' || g.biteCD > 0) return;
+  g.biteT = 0.16; g.biteCD = 0.22;
+  findTarget();
+  const o = g.target, perfect = g.targetPerfect;
+  if (!o) {
+    g.combo = Math.floor(g.combo / 2);
+    popText(g.x, PY - 50, 'กัดพลาด', '#f3dcc0', 15); sfx.miss(); return;
+  }
+  if (o.t === 'nail') { hit('กัดตะปู ฟันบิ่น!'); return; }
+  if (o.t === 'ant') { hit('มดกัดสวน!'); g.objs.splice(g.objs.indexOf(o), 1); return; }
+  o.hp -= jawDmg(save.up.jaw);
+  g.biteCD = 0.12;
+  if (o.hp <= 0) breakWood(o, perfect);
+  else { o.y -= 28; o.jig = 0.2; burst(o.x, o.y + o.h / 2, KINDS[o.kind].col, 6, 120); popText(o.x, o.y - 16, `อีก ${o.hp}`, '#fff8e6', 15); sfx.chip(); }
+}
+
+function startEvent() {
+  const type = ['spray', 'raid', 'spray', 'flood'][g.evCount % 4];
+  g.evCount++;
+  g.event = { type, t: -2, stepT: 0, hbT: 0, dur: type === 'spray' ? 14 : 9, near: 0.15, ex: g.x, shot: null, shotT: 1.2, acc: 0, ph: -1, s0: Math.random() < 0.5 ? 0 : 1, side: 0, active: false, pt: 0 };
+  const msg = {
+    spray: 'คนฉีดยาปลวกไล่มาแล้ว!<small>หลบแนวสเปรย์ กัดไม้เพื่อหนีให้ห่าง</small>',
+    raid: 'มดบุก!<small>หลบมด เก็บเศษกระดาษ</small>',
+    flood: 'น้ำไหลเข้าผนัง!<small>ดูขอบเตือน แล้วย้ายฝั่ง</small>'
+  };
+  banner(msg[type], 2.2);
+  if (type === 'spray') sfx.siren(); else sfx.warn();
+}
+
+const SPRAY_W = 74;
+function updateSpray(ev, dt) {
+  ev.stepT -= dt;
+  if (ev.stepT <= 0) { ev.stepT = 0.55 - ev.near * 0.3; sfx.step(ev.near > 0.6); }
+  if (ev.near > 0.65) { ev.hbT -= dt; if (ev.hbT <= 0) { ev.hbT = 0.75 - ev.near * 0.3; sfx.heart(); } }
+  ev.near = Math.min(1, ev.near + (0.035 + 0.02 * Math.min(1, g.t / 150)) * dt);
+  if (ev.near >= 1) {
+    if (hit('โดนฉีดยาเต็ม ๆ!', 32)) { g.poison = 4; ev.near = 0.55; g.shake = 14; sfx.caught(); }
+  }
+  if (!ev.shot) {
+    ev.shotT -= dt;
+    if (ev.shotT <= 0) { ev.shot = { x: clamp(g.x, L + 10, R - 10), t: 0 }; sfx.pump(); }
+  } else {
+    const s = ev.shot; s.t += dt;
+    if (s.t > 0.75 && !s.fired) { s.fired = true; sfx.hiss(); }
+    if (s.t > 0.75 && s.t < 1.35) {
+      if (Math.abs(g.x - s.x) < SPRAY_W / 2 + 6 && hit('โดนสเปรย์!', 16)) g.poison = 3;
+      if (Math.random() < 0.9) for (let i = 0; i < 3; i++) g.parts.push({ x: s.x + rand(-SPRAY_W / 2, SPRAY_W / 2), y: rand(0, LH), vx: rand(-30, 30), vy: rand(-260, -120), life: rand(0.3, 0.6), col: 'rgba(170,230,190,.8)', sz: rand(4, 8) });
+    }
+    if (s.t > 1.35) { ev.shot = null; ev.shotT = Math.max(0.9, 2.2 - ev.near * 1.2); }
+  }
+}
+function drawSprayShot(ev) {
+  const s = ev.shot; if (!s) return;
+  const x0 = s.x - SPRAY_W / 2;
+  if (s.t <= 0.75) {
+    const a = 0.3 + 0.3 * Math.sin(s.t * 30);
+    ctx.fillStyle = `rgba(120,200,140,${a * 0.35})`; ctx.fillRect(x0, 0, SPRAY_W, LH);
+    ctx.strokeStyle = `rgba(40,130,70,${0.5 + a})`; ctx.lineWidth = 2.5; ctx.setLineDash([8, 7]);
+    ctx.strokeRect(x0, -4, SPRAY_W, LH + 8); ctx.setLineDash([]);
+  } else if (s.t < 1.35) {
+    const gr = ctx.createLinearGradient(x0, 0, x0 + SPRAY_W, 0);
+    gr.addColorStop(0, 'rgba(160,225,180,0)'); gr.addColorStop(0.5, 'rgba(160,225,180,.6)'); gr.addColorStop(1, 'rgba(160,225,180,0)');
+    ctx.fillStyle = gr; ctx.fillRect(x0 - 10, 0, SPRAY_W + 20, LH);
+  }
+}
+function drawExterminator(ev) {
+  const appear = ev.t < 0 ? (ev.t + 2) / 2 : ev.t > ev.dur - 1 ? Math.max(0, ev.dur - ev.t) : 1;
+  const y = LH + 95 - appear * (40 + ev.near * 120);
+  const x = ev.ex, aim = ev.shot ? ev.shot.x : g.x;
+  // danger glow near the bottom
+  const vg = ctx.createLinearGradient(0, LH, 0, LH - 160);
+  vg.addColorStop(0, `rgba(190,40,30,${0.35 * ev.near * appear})`); vg.addColorStop(1, 'rgba(190,40,30,0)');
+  ctx.fillStyle = vg; ctx.fillRect(0, LH - 160, LW, 160);
+  ctx.save(); ctx.translate(x, y);
+  ctx.fillStyle = 'rgba(40,20,5,.3)'; ell(6, 10, 78, 46);
+  // sprayer wand toward aim
+  const ang = Math.atan2(-140, aim - (x + 34));
+  ctx.save(); ctx.translate(34, -18); ctx.rotate(ang);
+  ctx.strokeStyle = '#3c3c3c'; ctx.lineWidth = 5; ctx.lineCap = 'round';
+  ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(70, 0); ctx.stroke();
+  ctx.fillStyle = '#c23b2a'; ctx.fillRect(66, -5, 12, 10);
+  ctx.restore();
+  // tank on back
+  ctx.fillStyle = '#5d7d3a'; rrect(-30, 4, 60, 34, 10); ctx.fill();
+  ctx.fillStyle = 'rgba(255,255,255,.15)'; ctx.fillRect(-24, 8, 48, 4);
+  // shoulders / suit
+  ctx.fillStyle = '#e3eaee'; ell(0, 0, 66, 30);
+  ctx.strokeStyle = 'rgba(80,100,110,.35)'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(0, -28); ctx.lineTo(0, 28); ctx.stroke();
+  // arms
+  ctx.fillStyle = '#d3dce1'; ell(-52, -14, 14, 20); ell(40, -18, 14, 18);
+  ctx.fillStyle = '#e8a23a'; ell(-54, -30, 9, 9); ell(36, -30, 9, 9);
+  // head with hood, goggles and mask
+  ctx.fillStyle = '#f2f5f7'; ell(0, -12, 24, 24);
+  ctx.fillStyle = '#2e3a40'; rrect(-15, -30, 30, 9, 4); ctx.fill();
+  ctx.fillStyle = '#9ad1e6'; ell(-7, -26, 5, 3.4); ell(7, -26, 5, 3.4);
+  ctx.fillStyle = '#4a5a62'; ell(0, -36, 9, 6);
+  ctx.restore();
+}
+
+function floodZone(ev) {
+  const w = (R - L) * 0.48;
+  return ev.side === 0 ? [WALL, WALL + w] : [LW - WALL - w, LW - WALL];
+}
+
+function gameOver() {
+  g.state = 'over'; g.hunger = 0;
+  const food = g.eaten + g.crumbs * 2 + Math.floor(g.score / 400);
+  const isBest = g.score > save.best;
+  save.best = Math.max(save.best, Math.floor(g.score)); save.food += food; persist();
+  $('oScore').textContent = Math.floor(g.score);
+  $('oBest').innerHTML = save.best + (isBest ? '<span class="newBest">ใหม่</span>' : '');
+  $('oWood').textContent = g.eaten; $('oCombo').textContent = g.maxCombo; $('oFood').textContent = '+' + food;
+  const tips = ['กัดตอนไม้ใกล้ปากที่สุดได้ Perfect คะแนน 1.5 เท่า', 'ไม้แข็งจะถูกดันกลับทุกครั้งที่กัด กัดรัวให้ทัน', 'อย่ากัดตะปูกับมด กรอบสีแดงคือเตือนว่าห้ามกัด', 'ไม้อาบน้ำยาทำให้หิวเร็วขึ้น เลือกกัดไม้อื่นถ้าทำได้', 'เก็บ Combo ให้ถึง Frenzy แล้วพุ่งชนไม้ได้เลย', 'ตอนคนฉีดยาไล่ ยิ่งกัดไม้ได้มากยิ่งหนีห่าง ถ้าชนอะไรเขาจะเข้าใกล้'];
+  $('overTip').textContent = tips[Math.floor(Math.random() * tips.length)];
+  g.shake = 12; sfx.hit();
+  setTimeout(() => show('over'), 700);
+}
+
+/* ---------- update ---------- */
+function update(dt) {
+  if (g.state === 'menu') { g.bgY += 50 * dt; return; }
+  if (g.state !== 'playing') {
+    if (g.state === 'over') { g.overT += dt; stepFx(dt, 0); }
+    return;
+  }
+  g.t += dt;
+  const d = Math.min(1, g.t / 150);
+  const base = Math.min(220 + g.t * 2.4, 520);
+  let m = 1;
+  if (g.frenzy > 0) m *= 1.25;
+  if (g.boost > 0) m *= 1.35;
+  if (g.slow > 0) m *= 0.6;
+  g.speed = base * m;
+
+  // steering
+  const pr = 13 * (g.frenzy > 0 ? 1.35 : 1);
+  if (ptr.on) { g.vx = clamp((ptr.x - g.x) * 12, -640, 640); }
+  else { const dir = (keys.r ? 1 : 0) - (keys.l ? 1 : 0); g.vx += (dir * 360 - g.vx) * Math.min(1, dt * 14); }
+  g.x = clamp(g.x + g.vx * dt, WALL + pr + 2, LW - WALL - pr - 2);
+
+  // timers
+  for (const k of ['invuln', 'slow', 'boost', 'poison', 'biteT', 'biteCD', 'frenzy']) g[k] = Math.max(0, g[k] - dt);
+  if (g.frenzy > 0) g.meter = g.frenzy / 6 * 100; else if (g.meter >= 100) g.meter = 0;
+
+  // hunger
+  g.hunger -= (2.4 + base / 220) * (g.poison > 0 ? 3 : 1) * dt;
+  if (g.hunger <= 0) { gameOver(); return; }
+
+  const dy = g.speed * dt;
+  g.bgY += dy;
+  g.score += dy * 0.05 * mult();
+
+  for (const o of g.objs) {
+    o.y += dy;
+    if (o.t === 'ant') { o.x += o.vx * dt; o.ph += dt * 14; if (o.x < L) { o.x = L; o.vx = Math.abs(o.vx); } if (o.x > R) { o.x = R; o.vx = -Math.abs(o.vx); } }
+    if (o.jig > 0) o.jig = Math.max(0, o.jig - dt);
+  }
+
+  // spawning
+  g.spawnAcc += dy;
+  if (g.spawnAcc >= g.nextGap) {
+    g.spawnAcc = 0;
+    const raid = g.event && g.event.type === 'raid' && g.event.t >= 0;
+    const pool = PATTERNS.filter(p => p.min <= d && !(raid && p.noRaid));
+    pickW(pool).f(d);
+    g.nextGap = 300 - 110 * d + rand(0, 80);
+  }
+
+  // chase events
+  if (!g.event) { g.eventT -= dt; if (g.eventT <= 0) startEvent(); }
+  else {
+    const ev = g.event; ev.t += dt;
+    if (ev.type === 'spray') ev.ex += (g.x - ev.ex) * Math.min(1, dt * 1.6);
+    if (ev.t >= 0) {
+      if (ev.type === 'spray') updateSpray(ev, dt);
+      else if (ev.type === 'raid') {
+        ev.acc += dt;
+        if (ev.acc > 0.5) { ev.acc = 0; ant(rand(L, R), -30, (Math.random() < 0.5 ? -1 : 1) * rand(60, 120)); if (Math.random() < 0.4) crumb(rand(L, R), -60); }
+      } else {
+        const ph = Math.floor(ev.t / 3);
+        if (ph !== ev.ph) { ev.ph = ph; ev.side = (ph + ev.s0) % 2; }
+        ev.pt = ev.t - ph * 3; ev.active = ev.pt > 1.0;
+        if (ev.active) { const z = floodZone(ev); if (g.x > z[0] - 6 && g.x < z[1] + 6) hit('น้ำท่วม!'); }
+      }
+      if (ev.t >= ev.dur) {
+        const bonus = ev.type === 'spray' ? 500 : 300;
+        g.event = null; g.eventT = rand(15, 21); g.score += bonus;
+        banner((ev.type === 'spray' ? 'หนีพ้นคนฉีดยาแล้ว!' : 'รอดแล้ว!') + `<small>+${bonus}</small>`, 1.6);
+        if (ev.type === 'spray') sfx.escape();
+      }
+    }
+  }
+
+  // collisions
+  const cx = g.x, cy = PY - 2;
+  for (let i = g.objs.length - 1; i >= 0; i--) {
+    const o = g.objs[i];
+    if (o.y > LH + 80) { g.objs.splice(i, 1); continue; }
+    let touch;
+    if (o.t === 'wood') {
+      const nx = clamp(cx, o.x - o.w / 2, o.x + o.w / 2), ny = clamp(cy, o.y - o.h / 2, o.y + o.h / 2);
+      touch = (cx - nx) ** 2 + (cy - ny) ** 2 < pr * pr;
+    } else touch = (cx - o.x) ** 2 + (cy - o.y) ** 2 < (pr + o.r - 3) ** 2;
+    if (!touch) continue;
+    if (o.t === 'crumb') {
+      g.objs.splice(i, 1); g.crumbs++; g.hunger = Math.min(g.maxH, g.hunger + 5);
+      const p = Math.round(20 * mult()); g.score += p; popText(o.x, o.y - 14, '+' + p, '#ffffff', 14); sfx.eat();
+    } else if (o.t === 'wood') {
+      if (g.frenzy > 0) breakWood(o, false);
+      else if (g.invuln <= 0) { burst(o.x, o.y, KINDS[o.kind].col, 10, 160); g.objs.splice(i, 1); hit('ชนไม้!'); }
+    } else if (o.t === 'ant') {
+      if (g.frenzy > 0) { g.objs.splice(i, 1); burst(o.x, o.y, '#7a1d12', 10, 180); g.score += Math.round(30 * mult()); popText(o.x, o.y - 14, 'กระเด็น!', '#fff8e6', 15); crunch(0.08); }
+      else if (g.invuln <= 0) { g.objs.splice(i, 1); hit('โดนมด!'); }
+    } else if (o.t === 'nail') hit('ชนตะปู!');
+  }
+
+  findTarget();
+  music(dt);
+  stepFx(dt, dy);
+}
+
+function stepFx(dt, dy) {
+  for (let i = g.parts.length - 1; i >= 0; i--) { const p = g.parts[i]; p.life -= dt; if (p.life <= 0) { g.parts.splice(i, 1); continue; } p.vx *= 0.92; p.vy = p.vy * 0.92 + 300 * dt; p.x += p.vx * dt; p.y += p.vy * dt + dy; }
+  for (let i = g.texts.length - 1; i >= 0; i--) { const t = g.texts[i]; t.life -= dt; t.y -= 40 * dt; if (t.life <= 0) g.texts.splice(i, 1); }
+  g.shake = Math.max(0, g.shake - dt * 40);
+}
+
+/* ---------- render ---------- */
+function drawBg() {
+  const off = g.bgY % TILE_H;
+  for (let y = off - TILE_H; y < LH; y += TILE_H) ctx.drawImage(tile, 0, y, LW, TILE_H);
+  const gl = ctx.createLinearGradient(0, 0, WALL + 10, 0);
+  gl.addColorStop(0, '#3b2414'); gl.addColorStop(0.6, 'rgba(59,36,20,.55)'); gl.addColorStop(1, 'rgba(59,36,20,0)');
+  ctx.fillStyle = gl; ctx.fillRect(0, 0, WALL + 10, LH);
+  const gr = ctx.createLinearGradient(LW, 0, LW - WALL - 10, 0);
+  gr.addColorStop(0, '#3b2414'); gr.addColorStop(0.6, 'rgba(59,36,20,.55)'); gr.addColorStop(1, 'rgba(59,36,20,0)');
+  ctx.fillStyle = gr; ctx.fillRect(LW - WALL - 10, 0, WALL + 10, LH);
+}
+
+function drawFlood(ev) {
+  if (ev.type !== 'flood' || ev.t < 0) return;
+  const z = floodZone(ev), w = z[1] - z[0];
+  if (!ev.active) {
+    const a = 0.25 + 0.25 * Math.sin(g.t * 18);
+    ctx.fillStyle = `rgba(80,150,220,${a * 0.5})`; ctx.fillRect(z[0], 0, w, LH);
+    ctx.strokeStyle = `rgba(40,110,200,${0.5 + a})`; ctx.lineWidth = 3; ctx.setLineDash([10, 8]);
+    ctx.strokeRect(z[0] + 2, 2, w - 4, LH - 4); ctx.setLineDash([]);
+  } else {
+    ctx.fillStyle = 'rgba(60,135,210,.45)'; ctx.fillRect(z[0], 0, w, LH);
+    ctx.strokeStyle = 'rgba(220,240,255,.55)'; ctx.lineWidth = 2;
+    for (let y = (g.bgY * 1.3) % 40 - 40; y < LH; y += 40) { ctx.beginPath(); for (let x = z[0]; x <= z[1]; x += 12) ctx.lineTo(x, y + Math.sin(x * 0.08 + g.t * 6) * 4); ctx.stroke(); }
+  }
+}
+
+function drawWood(o) {
+  const k = KINDS[o.kind], jx = o.jig > 0 ? Math.sin(o.jig * 90) * 3 : 0;
+  const x = o.x - o.w / 2 + jx, y = o.y - o.h / 2;
+  ctx.fillStyle = 'rgba(60,30,10,.25)'; rrect(x + 3, y + 5, o.w, o.h, 6); ctx.fill();
+  if (o.kind === 'gold') { ctx.save(); ctx.shadowColor = '#ffd36b'; ctx.shadowBlur = 16; }
+  ctx.fillStyle = k.col; rrect(x, y, o.w, o.h, 6); ctx.fill();
+  if (o.kind === 'gold') ctx.restore();
+  ctx.save(); rrect(x, y, o.w, o.h, 6); ctx.clip();
+  ctx.strokeStyle = 'rgba(0,0,0,.18)'; ctx.lineWidth = 1.2;
+  for (let i = 1; i < 4; i++) { ctx.beginPath(); for (let xx = x; xx <= x + o.w; xx += 10) ctx.lineTo(xx, y + i * 7.5 + Math.sin(xx * 0.07 + o.w) * 1.6); ctx.stroke(); }
+  if (o.kind === 'chem') { ctx.strokeStyle = 'rgba(190,255,230,.35)'; ctx.lineWidth = 5; for (let s = -o.h; s < o.w; s += 14) { ctx.beginPath(); ctx.moveTo(x + s, y + o.h); ctx.lineTo(x + s + o.h, y); ctx.stroke(); } }
+  if (o.kind === 'rotten') { ctx.fillStyle = 'rgba(70,90,40,.45)'; for (let i = 0; i < 4; i++) ell(x + ((i * 37 + o.w) % o.w), y + 6 + (i * 11) % 20, 4, 3); }
+  ctx.fillStyle = 'rgba(255,255,255,.15)'; ctx.fillRect(x, y, o.w, 3);
+  ctx.restore();
+  if (o.max > 1) {
+    if (o.hp < o.max) { ctx.strokeStyle = 'rgba(20,8,0,.7)'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.moveTo(o.x - 10 + jx, y); ctx.lineTo(o.x - 2 + jx, y + 12); ctx.lineTo(o.x - 8 + jx, y + 20); if (o.hp < o.max - 1) { ctx.moveTo(o.x + 12 + jx, y + o.h); ctx.lineTo(o.x + 4 + jx, y + 16); } ctx.stroke(); }
+    for (let i = 0; i < o.max; i++) { ctx.fillStyle = i < o.hp ? '#ffe6b8' : 'rgba(255,230,184,.25)'; ell(o.x - (o.max - 1) * 5 + i * 10 + jx, y + o.h / 2, 3, 3); }
+  }
+}
+
+function drawNail(o) {
+  ctx.fillStyle = 'rgba(40,20,5,.35)'; ell(o.x + 3, o.y + 4, o.r, o.r * 0.9);
+  const gr = ctx.createRadialGradient(o.x - 4, o.y - 4, 2, o.x, o.y, o.r);
+  gr.addColorStop(0, '#e8eef2'); gr.addColorStop(1, '#7d868e');
+  ctx.fillStyle = gr; ell(o.x, o.y, o.r, o.r);
+  ctx.strokeStyle = '#5c646b'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(o.x - 6, o.y - 3); ctx.lineTo(o.x + 6, o.y + 3); ctx.stroke();
+}
+
+function drawAnt(o) {
+  ctx.save(); ctx.translate(o.x, o.y); ctx.rotate(o.vx > 0 ? Math.PI / 2 : -Math.PI / 2);
+  ctx.strokeStyle = '#3a1410'; ctx.lineWidth = 1.6; ctx.lineCap = 'round';
+  const w = Math.sin(o.ph) * 3;
+  for (let i = -1; i <= 1; i++) { ctx.beginPath(); ctx.moveTo(-3, i * 4); ctx.lineTo(-11, i * 6 + w * (i % 2 ? 1 : -1)); ctx.moveTo(3, i * 4); ctx.lineTo(11, i * 6 - w * (i % 2 ? 1 : -1)); ctx.stroke(); }
+  ctx.fillStyle = '#5a1810'; ell(0, 8, 5.5, 7);
+  ctx.fillStyle = '#7a1d12'; ell(0, 0, 3.5, 4.5);
+  ctx.fillStyle = '#8f2416'; ell(0, -8, 4.5, 4.5);
+  ctx.beginPath(); ctx.moveTo(-2, -11); ctx.lineTo(-6, -17); ctx.moveTo(2, -11); ctx.lineTo(6, -17); ctx.stroke();
+  ctx.restore();
+}
+
+function drawCrumb(o) {
+  ctx.save(); ctx.translate(o.x, o.y); ctx.rotate(o.rot + g.t * 0.6);
+  ctx.fillStyle = 'rgba(60,30,10,.2)'; ctx.fillRect(-7, -5, 15, 13);
+  ctx.fillStyle = '#fbf7ee'; ctx.fillRect(-8, -7, 15, 13);
+  ctx.strokeStyle = '#9fb7d6'; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(-6, -3); ctx.lineTo(5, -3); ctx.moveTo(-6, 1); ctx.lineTo(5, 1); ctx.moveTo(-6, 5); ctx.lineTo(2, 5); ctx.stroke();
+  ctx.restore();
+}
+
+function drawTarget() {
+  const o = g.target; if (!o || g.state !== 'playing') return;
+  const bad = o.t !== 'wood';
+  ctx.save(); ctx.lineWidth = g.targetPerfect ? 3 : 2;
+  ctx.strokeStyle = bad ? 'rgba(220,40,30,.9)' : g.targetPerfect ? 'rgba(255,248,200,.95)' : 'rgba(255,248,230,.6)';
+  if (bad) { ctx.beginPath(); ctx.arc(o.x, o.y, o.r + 6, 0, Math.PI * 2); ctx.stroke(); }
+  else { rrect(o.x - o.w / 2 - 3, o.y - o.h / 2 - 3, o.w + 6, o.h + 6, 8); ctx.stroke(); }
+  ctx.restore();
+}
+
+function drawTermite() {
+  const s = g.frenzy > 0 ? 1.35 : 1;
+  ctx.save();
+  if (g.invuln > 0 && Math.floor(g.invuln * 14) % 2 === 0) ctx.globalAlpha = 0.45;
+  ctx.translate(g.x, PY); ctx.scale(s, s); ctx.rotate(clamp(g.vx / 1600, -0.25, 0.25));
+  if (g.frenzy > 0) { ctx.fillStyle = 'rgba(255,200,80,.25)'; ell(0, 0, 26 + Math.sin(g.t * 20) * 2, 32); }
+  ctx.fillStyle = 'rgba(60,30,10,.25)'; ell(3, 8, 13, 19);
+  const w = Math.sin(g.t * 30) * (g.state === 'playing' ? 1 : 0);
+  ctx.strokeStyle = '#8a5a22'; ctx.lineWidth = 2; ctx.lineCap = 'round';
+  for (let i = 0; i < 3; i++) { const ly = -9 + i * 6, sw = (i % 2 ? w : -w) * 4; ctx.beginPath(); ctx.moveTo(-5, ly); ctx.lineTo(-15, ly - 3 + sw); ctx.moveTo(5, ly); ctx.lineTo(15, ly - 3 - sw); ctx.stroke(); }
+  ctx.fillStyle = g.poison > 0 ? '#d9e9d8' : g.frenzy > 0 ? '#ffe6b0' : '#f3e7cf'; ell(0, 9, 10.5, 14.5);
+  ctx.strokeStyle = 'rgba(150,110,60,.45)'; ctx.lineWidth = 1.2;
+  for (const yy of [3, 8, 13, 18]) { ctx.beginPath(); ctx.ellipse(0, yy, 9.5, 2.5, 0, 0.15, Math.PI - 0.15); ctx.stroke(); }
+  ctx.fillStyle = '#e8d4a8'; ell(0, -7, 6.5, 5.5);
+  ctx.fillStyle = '#d48a2a'; ell(0, -16, 8.5, 8);
+  let open = 0.45;
+  if (g.biteT > 0) { const p = 1 - g.biteT / 0.16; open = p < 0.35 ? 0.95 : 0.02; }
+  ctx.strokeStyle = '#5a2e0e'; ctx.lineWidth = 3;
+  ctx.save(); ctx.translate(-3, -22); ctx.rotate(-open); ctx.beginPath(); ctx.moveTo(0, 0); ctx.quadraticCurveTo(-2, -8, 5, -11); ctx.stroke(); ctx.restore();
+  ctx.save(); ctx.translate(3, -22); ctx.rotate(open); ctx.beginPath(); ctx.moveTo(0, 0); ctx.quadraticCurveTo(2, -8, -5, -11); ctx.stroke(); ctx.restore();
+  const aw = Math.sin(g.t * 8) * 2;
+  ctx.strokeStyle = '#a8691f'; ctx.lineWidth = 1.3;
+  ctx.beginPath(); ctx.moveTo(-5, -20); ctx.quadraticCurveTo(-12, -28, -17 + aw, -35); ctx.moveTo(5, -20); ctx.quadraticCurveTo(12, -28, 17 - aw, -35); ctx.stroke();
+  ctx.fillStyle = '#3a1a06'; ell(-3.2, -17, 1.4, 1.4); ell(3.2, -17, 1.4, 1.4);
+  ctx.restore();
+}
+
+function render() {
+  ctx.setTransform(dpr * scale, 0, 0, dpr * scale, 0, 0);
+  ctx.clearRect(0, 0, LW, LH);
+  ctx.save();
+  if (g.shake > 0 && !reduceMotion) ctx.translate(rand(-g.shake, g.shake) * 0.5, rand(-g.shake, g.shake) * 0.5);
+  drawBg();
+  if (g.event) { drawFlood(g.event); if (g.event.type === 'spray' && g.event.t >= 0) drawSprayShot(g.event); }
+  for (const o of g.objs) {
+    if (o.t === 'wood') drawWood(o); else if (o.t === 'nail') drawNail(o); else if (o.t === 'ant') drawAnt(o); else drawCrumb(o);
+  }
+  drawTarget();
+  if (g.state !== 'menu') drawTermite();
+  if (g.event && g.event.type === 'spray') drawExterminator(g.event);
+  for (const p of g.parts) { ctx.globalAlpha = Math.min(1, p.life * 2); ctx.fillStyle = p.col; ctx.fillRect(p.x - p.sz / 2, p.y - p.sz / 2, p.sz, p.sz); }
+  ctx.globalAlpha = 1;
+  ctx.textAlign = 'center';
+  for (const t of g.texts) {
+    ctx.globalAlpha = Math.min(1, t.life / t.max * 1.6);
+    ctx.font = `600 ${t.size}px Mitr, "Noto Sans Thai", sans-serif`;
+    ctx.lineWidth = 4; ctx.strokeStyle = 'rgba(60,30,10,.75)'; ctx.strokeText(t.txt, t.x, t.y);
+    ctx.fillStyle = t.col; ctx.fillText(t.txt, t.x, t.y);
+  }
+  ctx.globalAlpha = 1;
+  ctx.restore();
+  if (g.poison > 0) { ctx.fillStyle = 'rgba(60,160,140,.13)'; ctx.fillRect(0, 0, LW, LH); }
+  if (g.frenzy > 0) {
+    const vg = ctx.createRadialGradient(LW / 2, LH / 2, LH * 0.3, LW / 2, LH / 2, LH * 0.75);
+    vg.addColorStop(0, 'rgba(255,190,60,0)'); vg.addColorStop(1, 'rgba(255,170,40,.35)');
+    ctx.fillStyle = vg; ctx.fillRect(0, 0, LW, LH);
+  }
+}
+
+/* ---------- HUD ---------- */
+const hud = { score: $('score'), combo: $('combo'), mult: $('mult'), hunger: $('hunger'), hi: $('hunger').firstElementChild, meter: $('meter'), mi: $('meter').firstElementChild, ml: $('meterLabel') };
+let lastHud = '';
+function drawHud() {
+  if (g.state === 'menu') return;
+  const sc = Math.floor(g.score), mu = mult(), hp = clamp(g.hunger / g.maxH, 0, 1);
+  const key = sc + '|' + g.combo + '|' + mu + '|' + Math.round(hp * 200) + '|' + Math.round(g.meter) + '|' + (g.frenzy > 0);
+  if (key === lastHud) return; lastHud = key;
+  hud.score.textContent = sc;
+  hud.combo.textContent = 'Combo ' + g.combo;
+  hud.mult.textContent = 'คะแนน x' + (Math.round(mu * 100) / 100);
+  hud.hi.style.width = (hp * 100) + '%';
+  hud.hunger.classList.toggle('low', hp < 0.25);
+  hud.mi.style.width = clamp(g.meter, 0, 100) + '%';
+  hud.meter.classList.toggle('frenzy', g.frenzy > 0);
+  hud.ml.textContent = g.frenzy > 0 ? 'Frenzy กำลังทำงาน' : 'Frenzy';
+}
+
+/* ---------- screens ---------- */
+const overlays = ['menu', 'nest', 'pause', 'over'];
+function show(id) {
+  overlays.forEach(o => $(o).classList.toggle('on', o === id));
+  const playing = !id;
+  $('hud').classList.toggle('on', g.state !== 'menu');
+  $('biteBtn').classList.toggle('on', playing && matchMedia('(pointer:coarse)').matches);
+  $('keyHint').classList.toggle('on', playing && g.t < 8);
+  if (id === 'menu') $('menuBest').textContent = `คะแนนสูงสุด ${save.best} · อาหารในรัง ${save.food}`;
+  if (id === 'nest') renderNest();
+  const focusBtn = id && $(id).querySelector('button.main'); if (focusBtn) focusBtn.focus({ preventScroll: true });
+  updateMute();
+}
+function startRun() {
+  audio();
+  g = newGame('playing'); lastHud = ''; ptr.on = false;
+  show(null);
+  banner('วิ่ง!<small>กัดไม้ หลบตะปู</small>', 1.2);
+  setTimeout(() => $('keyHint').classList.remove('on'), 8000);
+}
+function pauseGame() { if (g.state !== 'playing') return; g.state = 'paused'; show('pause'); }
+function resumeGame() { if (g.state !== 'paused') return; g.state = 'playing'; show(null); last = performance.now(); }
+function toMenu() { g = newGame('menu'); show('menu'); }
+
+function renderNest() {
+  $('bankFood').textContent = save.food;
+  const box = $('ups'); box.innerHTML = '';
+  for (const u of UPS) {
+    const lv = save.up[u.id], max = lv >= MAXLV, cost = max ? 0 : COST[lv];
+    const el = document.createElement('div'); el.className = 'up';
+    el.innerHTML = `<h3>${u.name}</h3><div class="pips">${Array.from({ length: MAXLV }, (_, i) => `<i class="${i < lv ? 'f' : ''}"></i>`).join('')}</div><p>${u.desc(lv)}</p>`;
+    const b = document.createElement('button');
+    b.textContent = max ? 'เต็มแล้ว' : `${cost} อาหาร`;
+    b.disabled = max || save.food < cost;
+    b.setAttribute('aria-label', max ? `${u.name} เต็มแล้ว` : `อัปเกรด${u.name} ใช้ ${cost} อาหาร`);
+    b.onclick = () => { if (save.food >= cost && !max) { save.food -= cost; save.up[u.id]++; persist(); tone(520, 0.1, 'triangle', 0.05, 260); renderNest(); } };
+    el.appendChild(b); box.appendChild(el);
+  }
+}
+function updateMute() { document.querySelectorAll('.muteToggle').forEach(b => b.textContent = save.muted ? 'เปิดเสียง' : 'ปิดเสียง'); }
+document.querySelectorAll('.muteToggle').forEach(b => b.onclick = () => { save.muted = !save.muted; persist(); updateMute(); });
+
+$('startBtn').onclick = startRun; $('nestStart').onclick = startRun; $('againBtn').onclick = startRun;
+$('nestBtn').onclick = () => show('nest'); $('overNest').onclick = () => { g = newGame('menu'); show('nest'); };
+$('nestBack').onclick = () => { if (g.state !== 'menu') g = newGame('menu'); show('menu'); };
+$('resumeBtn').onclick = resumeGame; $('quitBtn').onclick = toMenu;
+$('pauseBtn').onclick = pauseGame;
+
+/* ---------- input ---------- */
+addEventListener('keydown', e => {
+  const k = e.key;
+  if (k === 'ArrowLeft' || k === 'a' || k === 'A') { keys.l = true; ptr.on = false; }
+  else if (k === 'ArrowRight' || k === 'd' || k === 'D') { keys.r = true; ptr.on = false; }
+  else if (k === ' ' || k === 'ArrowUp' || k === 'w' || k === 'W' || k === 'j' || k === 'J') {
+    if (g.state === 'playing') { e.preventDefault(); if (!e.repeat) bite(); }
+  }
+  else if (k === 'p' || k === 'P' || k === 'Escape') { if (g.state === 'playing') pauseGame(); else if (g.state === 'paused') resumeGame(); }
+  else if (k === 'Enter' && (g.state === 'menu' || g.state === 'over') && document.activeElement === document.body) startRun();
+});
+addEventListener('keyup', e => {
+  const k = e.key;
+  if (k === 'ArrowLeft' || k === 'a' || k === 'A') keys.l = false;
+  if (k === 'ArrowRight' || k === 'd' || k === 'D') keys.r = false;
+});
+const worldX = e => { const r = cv.getBoundingClientRect(); return (e.clientX - r.left) / scale; };
+cv.addEventListener('pointerdown', e => { if (g.state !== 'playing') return; ptr.on = true; ptr.id = e.pointerId; ptr.x = worldX(e); try { cv.setPointerCapture(e.pointerId); } catch (_) {} });
+cv.addEventListener('pointermove', e => { if (ptr.on && e.pointerId === ptr.id) ptr.x = worldX(e); });
+const endPtr = e => { if (e.pointerId === ptr.id) ptr.on = false; };
+cv.addEventListener('pointerup', endPtr); cv.addEventListener('pointercancel', endPtr);
+const bb = $('biteBtn');
+bb.addEventListener('pointerdown', e => { e.preventDefault(); e.stopPropagation(); bite(); });
+bb.addEventListener('contextmenu', e => e.preventDefault());
+document.addEventListener('visibilitychange', () => { if (document.hidden) pauseGame(); });
+addEventListener('blur', () => { keys.l = keys.r = false; });
+
+/* ---------- loop ---------- */
+let last = performance.now();
+function frame(now) {
+  const dt = Math.min(0.033, (now - last) / 1000); last = now;
+  update(dt); render(); drawHud();
+  requestAnimationFrame(frame);
+}
+addEventListener('resize', resize);
+resize(); show('menu');
+requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>
